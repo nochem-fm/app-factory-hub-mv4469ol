@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">App Factory</string>
+    <string name="site_title">מפעל האפליקציות</string>
+    <string name="bg_active">פועל ברקע</string>
+    <string name="bg_inactive">כבוי ברקע</string>
+    <string name="bg_desc">שירות ניטור והתראות פעיל כעת</string>
+    <string name="error_title">לא ניתן להתחבר לאתר</string>
+    <string name="error_message">אירעה שגיאה בטעינת האתר. אנא בדקו את חיבור האינטרנט ונסו שוב.</string>
+    <string name="retry">נסה שוב</string>
+    <string name="notification_channel_name">התראות מפעל האפליקציות</string>
+    <string name="notification_channel_desc">עדכונים והודעות רקע על מצב האפליקציה</string>
+    <string name="notif_title">מפעל האפליקציות פועל ברקע</string>
+    <string name="notif_text">האפליקציה שומרת על סנכרון והתראות בזמן אמת</string>
+    <string name="grant_permission_needed">יש לאשר התראות כדי לקבל עדכונים</string>
+</resources>

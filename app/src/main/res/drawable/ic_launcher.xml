@@ -1,0 +1,49 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- Rounded Background -->
+    <path
+        android:fillColor="#1A237E"
+        android:pathData="M16,0 L80,0 A16,16 0 0,1 96,16 L96,80 A16,16 0 0,1 80,96 L16,96 A16,16 0 0,1 0,80 L0,16 A16,16 0 0,1 16,0 Z" />
+
+    <!-- Factory Roof / Silhouette Accent -->
+    <path
+        android:fillColor="#3949AB"
+        android:pathData="M14,68 L14,48 L32,60 L32,48 L52,60 L52,36 L68,36 L68,68 Z" />
+
+    <!-- Factory Chimney Steam / Innovation Sparks -->
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M60,20 L64,20 L64,30 L60,30 Z" />
+    <path
+        android:fillColor="#69F0AE"
+        android:pathData="M66,14 L70,14 L70,26 L66,26 Z" />
+
+    <!-- Futuristic Mobile / Device Frame Base -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,26 L78,26 A6,6 0 0,1 84,32 L84,76 A6,6 0 0,1 78,82 L38,82 A6,6 0 0,1 32,76 L32,32 A6,6 0 0,1 38,26 Z" />
+
+    <!-- Device Inner Screen -->
+    <path
+        android:fillColor="#1E88E5"
+        android:pathData="M36,32 L80,32 L80,74 L36,74 Z" />
+
+    <!-- Central Code / App Symbol (< />) -->
+    <path
+        android:fillColor="#FFD54F"
+        android:pathData="M48,46 L42,53 L48,60 L45,63 L36,53 L45,43 Z" />
+    <path
+        android:fillColor="#FFD54F"
+        android:pathData="M68,46 L74,53 L68,60 L71,63 L80,53 L71,43 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M60,42 L55,64 L52,64 L57,42 Z" />
+
+    <!-- Bottom Indicator -->
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M54,77 A4,4 0 1,1 62,77 A4,4 0 1,1 54,77 Z" />
+</vector>
