@@ -1,18 +1,20 @@
 package com.generated.app;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.webkit.DownloadListener;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -23,7 +25,8 @@ import android.widget.Toast;
 
 public class MainActivity extends Activity {
 
-    private static final String TARGET_URL = "https://app-factory-nt5l.onrender.com/";
+    public static final String TARGET_URL = "https://app-factory-nt5l.onrender.com/";
+    private static final String INTERNAL_HOST = "app-factory-nt5l.onrender.com";
     private static final int PERMISSION_REQ_NOTIFICATIONS = 101;
 
     private WebView webView;
@@ -47,9 +50,10 @@ public class MainActivity extends Activity {
     private void initViews() {
         webView = (WebView) findViewById(R.id.webView);
         progressBar = (ProgressBar) findViewById(R.id.progressBar);
-        errorView = (errorView = findViewById(R.id.errorView));
+        errorView = findViewById(R.id.errorView);
         btnToggleBackground = (Button) findViewById(R.id.btnToggleBackground);
         ImageButton btnRefresh = (ImageButton) findViewById(R.id.btnRefresh);
+        ImageButton btnAbout = (ImageButton) findViewById(R.id.btnAbout);
         Button btnRetry = (Button) findViewById(R.id.btnRetry);
 
         btnRefresh.setOnClickListener(new View.OnClickListener() {
@@ -58,6 +62,14 @@ public class MainActivity extends Activity {
                 errorView.setVisibility(View.GONE);
                 webView.setVisibility(View.VISIBLE);
                 webView.reload();
+            }
+        });
+
+        btnAbout.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(MainActivity.this, AboutActivity.class);
+                startActivity(intent);
             }
         });
 
@@ -94,7 +106,28 @@ public class MainActivity extends Activity {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         }
 
+        webView.setDownloadListener(new DownloadListener() {
+            @Override
+            public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
+                handleExternalLink(url);
+            }
+        });
+
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return handleUrlNavigation(url);
+            }
+
+            @TargetApi(Build.VERSION_CODES.N)
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (request != null && request.getUrl() != null) {
+                    return handleUrlNavigation(request.getUrl().toString());
+                }
+                return false;
+            }
+
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 progressBar.setVisibility(View.VISIBLE);
@@ -126,6 +159,61 @@ public class MainActivity extends Activity {
                 super.onProgressChanged(view, newProgress);
             }
         });
+    }
+
+    private boolean handleUrlNavigation(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            return false;
+        }
+
+        Uri uri = Uri.parse(url);
+        String scheme = uri.getScheme();
+
+        // Specific application schemes should always open in external apps
+        if (scheme != null && !scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https")) {
+            return handleExternalLink(url);
+        }
+
+        // Check if the link belongs to the internal site
+        String host = uri.getHost();
+        if (host != null && host.equalsIgnoreCase(INTERNAL_HOST)) {
+            return false; // Load inside WebView
+        }
+
+        // All other domains (external sites, forums, social links, downloads) open in external apps
+        return handleExternalLink(url);
+    }
+
+    private boolean handleExternalLink(String url) {
+        if (url == null) return false;
+        try {
+            if (url.startsWith("intent:")) {
+                Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+                if (intent != null) {
+                    PackageManager pm = getPackageManager();
+                    if (intent.resolveActivity(pm) != null) {
+                        startActivity(intent);
+                        return true;
+                    }
+                    String fallbackUrl = intent.getStringExtra("browser_fallback_url");
+                    if (fallbackUrl != null) {
+                        Intent fallbackIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl));
+                        fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(fallbackIntent);
+                        return true;
+                    }
+                }
+                return true;
+            }
+
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            return true;
+        } catch (Exception e) {
+            Toast.makeText(this, getString(R.string.no_app_to_open_link), Toast.LENGTH_SHORT).show();
+            return true;
+        }
     }
 
     private void loadTargetUrl() {

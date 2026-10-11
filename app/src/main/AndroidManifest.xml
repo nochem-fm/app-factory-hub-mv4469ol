@@ -27,6 +27,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name="com.generated.app.AboutActivity"
+            android:exported="false"
+            android:label="@string/about_title"
+            android:parentActivityName="com.generated.app.MainActivity" />
+
         <service
             android:name="com.generated.app.BackgroundMonitorService"
             android:exported="false"

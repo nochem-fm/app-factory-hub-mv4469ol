@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">App Factory</string>
     <string name="site_title">מפעל האפליקציות</string>
+    <string name="app_subtitle">גרסה 1.1 • ניטור, ייצור וניהול אפליקציות</string>
     <string name="bg_active">פועל ברקע</string>
     <string name="bg_inactive">כבוי ברקע</string>
     <string name="bg_desc">שירות ניטור והתראות פעיל כעת</string>
@@ -12,4 +13,17 @@
     <string name="notif_title">מפעל האפליקציות פועל ברקע</string>
     <string name="notif_text">האפליקציה שומרת על סנכרון והתראות בזמן אמת</string>
     <string name="grant_permission_needed">יש לאשר התראות כדי לקבל עדכונים</string>
+
+    <!-- About & Credits -->
+    <string name="about_title">אודות וקרדיטים</string>
+    <string name="back">חזרה</string>
+    <string name="credit_site_creator_label">יוצר האתר</string>
+    <string name="credit_site_creator_name">@חייא-שיאומי</string>
+    <string name="credit_site_creator_desc">פיתוח ועיצוב פלטפורמת האינטרנט של מפעל האפליקציות</string>
+    <string name="credit_app_creator_label">יוצר האפליקציה</string>
+    <string name="credit_app_creator_name">@נוחעם-FM</string>
+    <string name="credit_app_creator_desc">פיתוח אפליקציית האנדרואיד, שירותי הרקע ואינטגרציית המובייל</string>
+    <string name="open_profile">פתח פרופיל בפורום מתמחים טופ</string>
+    <string name="mitmachim_credit">קהילת מתמחים טופ • mitmachim.top</string>
+    <string name="no_app_to_open_link">לא נמצא יישום לפתיחת הקישור</string>
 </resources>
