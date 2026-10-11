@@ -7,6 +7,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -46,7 +47,12 @@ public class BackgroundMonitorService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Notification notification = buildForegroundNotification(getString(R.string.notif_text));
-        startForeground(NOTIFICATION_ID, notification);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        } else {
+            startForeground(NOTIFICATION_ID, notification);
+        }
 
         if (!isRunning) {
             isRunning = true;
@@ -146,7 +152,11 @@ public class BackgroundMonitorService extends Service {
         if (handler != null && monitorRunnable != null) {
             handler.removeCallbacks(monitorRunnable);
         }
-        stopForeground(true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE);
+        } else {
+            stopForeground(true);
+        }
         super.onDestroy();
     }
 
