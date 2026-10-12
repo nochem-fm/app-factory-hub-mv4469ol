@@ -24,6 +24,7 @@ import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
 import android.webkit.JavascriptInterface;
+import android.webkit.MimeTypeMap;
 import android.webkit.URLUtil;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -302,7 +303,7 @@ public class MainActivity extends Activity {
         try {
             String fileName = URLUtil.guessFileName(url, contentDisposition, mimetype);
             if (fileName == null || fileName.isEmpty()) {
-                fileName = "app-factory-" + System.currentTimeMillis() + (mimetype != null && mimetype.contains("android.package-archive") ? ".apk" : ".bin");
+                fileName = "app-factory-" + System.currentTimeMillis() + "." + getExtensionForMimeType(mimetype);
             }
 
             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
@@ -341,7 +342,7 @@ public class MainActivity extends Activity {
                 + "  xhr.onload = function() {"
                 + "    var reader = new FileReader();"
                 + "    reader.onloadend = function() {"
-                + "      AndroidDownloader.saveBase64(reader.result, 'app-build-" + System.currentTimeMillis() + ".apk');"
+                + "      AndroidDownloader.saveBase64(reader.result);" // Pass entire data URI
                 + "    };"
                 + "    reader.readAsDataURL(xhr.response);"
                 + "  };"
@@ -355,8 +356,24 @@ public class MainActivity extends Activity {
             int commaIndex = dataUri.indexOf(',');
             if (commaIndex > 0) {
                 String base64Data = dataUri.substring(commaIndex + 1);
+                String mimeTypePart = dataUri.substring(0, commaIndex);
+                String mimeType = "application/octet-stream"; // Default
+
+                int mimeTypeStart = mimeTypePart.indexOf(':');
+                int mimeTypeEnd = mimeTypePart.indexOf(';');
+
+                if (mimeTypeStart != -1 && mimeTypeEnd != -1 && mimeTypeStart < mimeTypeEnd) {
+                    mimeType = mimeTypePart.substring(mimeTypeStart + 1, mimeTypeEnd);
+                } else if (mimeTypeStart != -1) { // no ;base64 part, just data:mimetype
+                    mimeType = mimeTypePart.substring(mimeTypeStart + 1);
+                }
+
                 byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
-                saveAndPromptInstallApk(bytes, "app-" + System.currentTimeMillis() + ".apk");
+
+                String extension = getExtensionForMimeType(mimeType);
+                final String finalFilename = "data-download-" + System.currentTimeMillis() + "." + extension;
+
+                saveFileToDownloads(bytes, finalFilename, mimeType);
             }
         } catch (Exception e) {
             Toast.makeText(this, getString(R.string.download_failed), Toast.LENGTH_SHORT).show();
@@ -365,25 +382,66 @@ public class MainActivity extends Activity {
 
     private class BlobDownloadInterface {
         @JavascriptInterface
-        public void saveBase64(String base64Data, String filename) {
-            try {
-                if (base64Data != null && base64Data.contains(",")) {
-                    base64Data = base64Data.substring(base64Data.indexOf(",") + 1);
-                }
-                byte[] decodedBytes = Base64.decode(base64Data, Base64.DEFAULT);
-                saveAndPromptInstallApk(decodedBytes, filename);
-            } catch (Exception e) {
+        public void saveBase64(final String dataUri) { // dataUri will be like "data:mimetype;base64,..."
+            if (dataUri == null || !dataUri.startsWith("data:")) {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         Toast.makeText(MainActivity.this, getString(R.string.download_failed), Toast.LENGTH_SHORT).show();
                     }
                 });
+                return;
             }
+
+            int commaIndex = dataUri.indexOf(',');
+            if (commaIndex <= 0) {
+                 runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(MainActivity.this, getString(R.string.download_failed), Toast.LENGTH_SHORT).show();
+                    }
+                });
+                return;
+            }
+
+            final String base64Data = dataUri.substring(commaIndex + 1);
+            String mimeTypePart = dataUri.substring(0, commaIndex); // e.g., "data:application/vnd.android.package-archive;base64"
+            String mimeType = "application/octet-stream"; // Default
+
+            int mimeTypeStart = mimeTypePart.indexOf(':');
+            int mimeTypeEnd = mimeTypePart.indexOf(';');
+
+            if (mimeTypeStart != -1 && mimeTypeEnd != -1 && mimeTypeStart < mimeTypeEnd) {
+                mimeType = mimeTypePart.substring(mimeTypeStart + 1, mimeTypeEnd);
+            } else if (mimeTypeStart != -1) { // no ;base64 part, just data:mimetype
+                 mimeType = mimeTypePart.substring(mimeTypeStart + 1);
+            }
+
+            final String actualMimeType = mimeType;
+
+            String extension = getExtensionForMimeType(actualMimeType);
+            final String finalFilename = "blob-download-" + System.currentTimeMillis() + "." + extension;
+
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        byte[] decodedBytes = Base64.decode(base64Data, Base64.DEFAULT);
+                        saveFileToDownloads(decodedBytes, finalFilename, actualMimeType);
+                    } catch (Exception e) {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                Toast.makeText(MainActivity.this, getString(R.string.download_failed), Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
+                }
+            }).start();
         }
     }
 
-    private void saveAndPromptInstallApk(final byte[] data, final String filename) {
+    private void saveFileToDownloads(final byte[] data, final String filename, final String mimeType) {
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -392,8 +450,8 @@ public class MainActivity extends Activity {
                     if (!downloadDir.exists()) {
                         downloadDir.mkdirs();
                     }
-                    final File apkFile = new File(downloadDir, filename);
-                    FileOutputStream fos = new FileOutputStream(apkFile);
+                    final File savedFile = new File(downloadDir, filename);
+                    FileOutputStream fos = new FileOutputStream(savedFile);
                     fos.write(data);
                     fos.flush();
                     fos.close();
@@ -402,7 +460,12 @@ public class MainActivity extends Activity {
                         @Override
                         public void run() {
                             Toast.makeText(MainActivity.this, getString(R.string.download_finished), Toast.LENGTH_SHORT).show();
-                            promptInstallApk(apkFile);
+                            if (isApkMimeType(mimeType)) {
+                                promptInstallApk(savedFile);
+                            } else {
+                                // For non-APK files, just notify download finished.
+                                // User can find it in downloads folder.
+                            }
                         }
                     });
                 } catch (Exception e) {
@@ -431,16 +494,33 @@ public class MainActivity extends Activity {
                 if (statusIndex >= 0 && cursor.getInt(statusIndex) == DownloadManager.STATUS_SUCCESSFUL) {
                     int localUriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI);
                     int titleIndex = cursor.getColumnIndex(DownloadManager.COLUMN_TITLE);
+                    int mediaTypeIndex = cursor.getColumnIndex(DownloadManager.COLUMN_MEDIA_TYPE); // API 9+
 
                     String localUriStr = localUriIndex >= 0 ? cursor.getString(localUriIndex) : null;
                     String title = titleIndex >= 0 ? cursor.getString(titleIndex) : "";
+                    String mediaType = mediaTypeIndex >= 0 ? cursor.getString(mediaTypeIndex) : null;
 
                     if (localUriStr != null) {
                         Uri uri = Uri.parse(localUriStr);
                         File file = new File(uri.getPath());
-                        if (file.exists() && (title.toLowerCase().endsWith(".apk") || file.getName().toLowerCase().endsWith(".apk"))) {
+
+                        // Attempt to determine actual mime type if not explicitly provided by DownloadManager
+                        if (mediaType == null && file.exists()) {
+                            mediaType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(MimeTypeMap.getFileExtensionFromUrl(file.getAbsolutePath()));
+                            if (mediaType == null) { // Fallback if extension lookup fails
+                                if (file.getName().toLowerCase().endsWith(".apk")) {
+                                    mediaType = "application/vnd.android.package-archive";
+                                } else if (file.getName().toLowerCase().endsWith(".zip")) {
+                                    mediaType = "application/zip";
+                                }
+                            }
+                        }
+
+                        if (file.exists() && isApkMimeType(mediaType)) {
+                            // Only prompt install if it's confirmed an APK
                             promptInstallApk(file);
                         } else {
+                            // General download completion toast for non-APK files or if type is unknown
                             Toast.makeText(this, getString(R.string.download_finished) + ": " + title, Toast.LENGTH_LONG).show();
                         }
                     }
@@ -718,6 +798,18 @@ public class MainActivity extends Activity {
             btnToggleBackground.setText(R.string.bg_inactive);
             btnToggleBackground.setTextColor(0xFFFF5252);
         }
+    }
+
+    private boolean isApkMimeType(String mimeType) {
+        return mimeType != null && "application/vnd.android.package-archive".equalsIgnoreCase(mimeType);
+    }
+
+    private String getExtensionForMimeType(String mimeType) {
+        if (isApkMimeType(mimeType)) {
+            return "apk";
+        }
+        String extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType);
+        return (extension != null && !extension.isEmpty()) ? extension : "bin";
     }
 
     @Override
