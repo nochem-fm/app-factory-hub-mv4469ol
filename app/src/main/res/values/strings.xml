@@ -2,8 +2,6 @@
     <string name="app_name">App Factory</string>
     <string name="site_title">מפעל האפליקציות</string>
     <string name="app_subtitle">גרסה 1.2 • ניטור, ייצור, הורדה והתקנת אפליקציות</string>
-    <string name="package_name_label">מזהה חבילה:</string>
-    <string name="package_name_val">com.app.factory.fm</string>
     <string name="features_title">יכולות האפליקציה:</string>
     <string name="features_desc">✔ תמיכה מלאה בהורדת קבצי APK ו-BLOB\n✔ התקנת אפליקציות מתוך היישום באופן ישיר\n✔ רשימת הורדות מובנית וגישה מהירה\n✔ ניטור פעילות שרת ברקע והתראות בזמן אמת</string>
 
@@ -51,7 +49,7 @@
     <string name="credit_site_creator_desc">פיתוח ועיצוב פלטפורמת האינטרנט של מפעל האפליקציות</string>
     <string name="credit_app_creator_label">יוצר האפליקציה</string>
     <string name="credit_app_creator_name">@נוחעם-FM</string>
-    <string name="credit_app_creator_desc">פיתוח אפליקציית האנדרואיד com.app.factory.fm, הורדות, התקנת APK וניטור רקע</string>
+    <string name="credit_app_creator_desc">פיתוח אפליקציית האנדרואיד, הורדות, התקנת APK וניטור רקע</string>
     <string name="open_profile">פתח פרופיל בפורום מתמחים טופ</string>
     <string name="mitmachim_credit">קהילת מתמחים טופ • mitmachim.top</string>
     <string name="no_app_to_open_link">לא נמצא יישום לפתיחת הקישור</string>

@@ -4,52 +4,46 @@
     android:viewportWidth="96"
     android:viewportHeight="96">
 
-    <!-- Premium Rounded Squircle Outer Container -->
+    <!-- Primary Brand Background: Deep Indigo Rounded Square -->
     <path
-        android:fillColor="#0D1B2A"
-        android:pathData="M24,0 L72,0 C85.25,0 96,10.75 96,24 L96,72 C96,85.25 85.25,96 72,96 L24,96 C10.75,96 0,85.25 0,72 L0,24 C0,10.75 10.75,0 24,0 Z" />
+        android:fillColor="#1A237E"
+        android:pathData="M24,4 L72,4 A20,20 0 0 1 92,24 L92,72 A20,20 0 0 1 72,92 L24,92 A20,20 0 0 1 4,72 L4,24 A20,20 0 0 1 24,4 Z" />
 
-    <!-- Sleek Blueprint Background Card -->
+    <!-- Factory Smoke Rings -->
     <path
-        android:fillColor="#1B263B"
-        android:pathData="M12,24 C12,17.37 17.37,12 24,12 L72,12 C78.63,12 84,17.37 84,24 L84,72 C84,78.63 78.63,84 72,84 L24,84 C17.37,84 12,78.63 12,72 Z" />
-
-    <!-- High-tech Blueprint Grid Pattern Lines -->
+        android:fillColor="#9FA8DA"
+        android:pathData="M66,16 A5,5 0 1,1 76,16 A5,5 0 1,1 66,16 Z" />
     <path
-        android:fillColor="#2A3C53"
-        android:pathData="M16,36 L80,36 L80,38 L16,38 Z M16,58 L80,58 L80,60 L16,60 Z M36,16 L38,16 L38,80 L36,80 Z M58,16 L60,16 L60,80 L58,80 Z" />
+        android:fillColor="#C5CAE9"
+        android:pathData="M70,24 A3,3 0 1,1 76,24 A3,3 0 1,1 70,24 Z" />
 
-    <!-- 3D Isometric Factory Package: Top Base -->
+    <!-- Chimney Stack -->
     <path
-        android:fillColor="#4361EE"
-        android:pathData="M48,18 L73,32 L48,45 L23,32 Z" />
+        android:fillColor="#283593"
+        android:pathData="M68,26 L76,26 L76,46 L68,46 Z" />
 
-    <!-- 3D Isometric Factory Package: Left Panel -->
-    <path
-        android:fillColor="#3A0CA3"
-        android:pathData="M23,32 L48,45 L48,72 L23,59 Z" />
-
-    <!-- 3D Isometric Factory Package: Right Panel -->
-    <path
-        android:fillColor="#2563EB"
-        android:pathData="M48,45 L73,32 L73,59 L48,72 Z" />
-
-    <!-- Top Cap Factory Seal / Android Green Glow Core -->
-    <path
-        android:fillColor="#00E676"
-        android:pathData="M48,25 L61,32 L48,39 L35,32 Z" />
-
-    <!-- Downward Installer Arrow Glyph -->
+    <!-- Classic Sawtooth Factory Structure -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M45,46 L51,46 L51,57 L57,57 L48,67 L39,57 L45,57 Z" />
+        android:pathData="M18,68 L18,50 L34,38 L34,50 L50,38 L50,50 L66,38 L66,46 L78,46 L78,68 Z" />
 
-    <!-- High-Tech Accent Sparkles -->
+    <!-- Industrial Base Foundation -->
     <path
-        android:fillColor="#4CC9F0"
-        android:pathData="M22,22 A4,4 0 1,1 30,22 A4,4 0 1,1 22,22 Z" />
+        android:fillColor="#E8EAF6"
+        android:pathData="M14,68 L82,68 L82,74 L14,74 Z" />
+
+    <!-- Factory Windows -->
+    <path
+        android:fillColor="#1A237E"
+        android:pathData="M24,56 L30,56 L30,64 L24,64 Z M36,56 L42,56 L42,64 L36,64 Z M48,56 L54,56 L54,64 L48,64 Z M60,56 L66,56 L66,64 L60,64 Z" />
+
+    <!-- Android Core Tech Cog Badge -->
     <path
         android:fillColor="#00E676"
-        android:pathData="M66,72 A4,4 0 1,1 74,72 A4,4 0 1,1 66,72 Z" />
+        android:pathData="M48,22 C43.58,22 40,25.58 40,30 C40,34.42 43.58,38 48,38 C52.42,38 56,34.42 56,30 C56,25.58 52.42,22 48,22 Z M48,33 C46.34,33 45,31.66 45,30 C45,28.34 46.34,27 48,27 C49.66,27 51,28.34 51,30 C51,31.66 49.66,33 48,33 Z" />
+
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M46,19 L50,19 L50,23 L46,23 Z M46,37 L50,37 L50,41 L46,41 Z M37,28 L41,28 L41,32 L37,32 Z M55,28 L59,28 L59,32 L55,32 Z" />
 
 </vector>
