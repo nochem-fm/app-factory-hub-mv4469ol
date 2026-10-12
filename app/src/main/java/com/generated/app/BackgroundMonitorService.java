@@ -48,10 +48,23 @@ public class BackgroundMonitorService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Notification notification = buildForegroundNotification(getString(R.string.notif_text));
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+            } else {
+                startForeground(NOTIFICATION_ID, notification);
+            }
+        } catch (Exception e) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+                } else {
+                    startForeground(NOTIFICATION_ID, notification);
+                }
+            } catch (Exception ex) {
+                stopSelf();
+                return START_NOT_STICKY;
+            }
         }
 
         if (!isRunning) {
@@ -95,9 +108,12 @@ public class BackgroundMonitorService extends Service {
         handler.post(new Runnable() {
             @Override
             public void run() {
-                NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                if (nm != null) {
-                    nm.notify(NOTIFICATION_ID, buildForegroundNotification(statusText));
+                try {
+                    NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                    if (nm != null) {
+                        nm.notify(NOTIFICATION_ID, buildForegroundNotification(statusText));
+                    }
+                } catch (Exception ignored) {
                 }
             }
         });
@@ -152,10 +168,13 @@ public class BackgroundMonitorService extends Service {
         if (handler != null && monitorRunnable != null) {
             handler.removeCallbacks(monitorRunnable);
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            stopForeground(STOP_FOREGROUND_REMOVE);
-        } else {
-            stopForeground(true);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE);
+            } else {
+                stopForeground(true);
+            }
+        } catch (Exception ignored) {
         }
         super.onDestroy();
     }

@@ -6,7 +6,6 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
-import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.provider.OpenableColumns;
 import android.webkit.MimeTypeMap;
@@ -17,8 +16,7 @@ import java.io.IOException;
 
 public class AppFileProvider extends ContentProvider {
 
-    public static final String AUTHORITY = "com.app.factory.fm.fileprovider";
-    public static final String FALLBACK_AUTHORITY = "com.generated.app.fileprovider";
+    public static final String DEFAULT_AUTHORITY = "com.app.factory.fm.fileprovider";
 
     @Override
     public boolean onCreate() {
@@ -26,7 +24,7 @@ public class AppFileProvider extends ContentProvider {
     }
 
     public static Uri getUriForFile(Context context, File file) {
-        String authority = AUTHORITY;
+        String authority = (context != null ? context.getPackageName() : "com.app.factory.fm") + ".fileprovider";
         try {
             String path = file.getCanonicalPath();
             return new Uri.Builder()

@@ -53,6 +53,7 @@ public class MainActivity extends Activity {
     private View errorView;
     private Button btnToggleBackground;
     private boolean isBackgroundServiceRunning = false;
+    private boolean isReceiverRegistered = false;
 
     private File pendingInstallApk = null;
     private String pendingDownloadUrl = null;
@@ -63,7 +64,7 @@ public class MainActivity extends Activity {
     private final BroadcastReceiver downloadReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(intent.getAction())) {
+            if (intent != null && DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(intent.getAction())) {
                 long downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
                 if (downloadId != -1) {
                     handleDownloadCompleted(downloadId);
@@ -82,16 +83,36 @@ public class MainActivity extends Activity {
         requestNotificationPermissionIfNeeded();
         startBackgroundService();
 
-        registerReceiver(downloadReceiver, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
-
+        registerDownloadReceiverSafe();
         loadTargetUrl();
+    }
+
+    private void registerDownloadReceiverSafe() {
+        try {
+            IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+            if (Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(downloadReceiver, filter, Context.RECEIVER_EXPORTED);
+            } else {
+                registerReceiver(downloadReceiver, filter);
+            }
+            isReceiverRegistered = true;
+        } catch (Exception e) {
+            try {
+                registerReceiver(downloadReceiver, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+                isReceiverRegistered = true;
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     @Override
     protected void onDestroy() {
-        try {
-            unregisterReceiver(downloadReceiver);
-        } catch (Exception ignored) {
+        if (isReceiverRegistered) {
+            try {
+                unregisterReceiver(downloadReceiver);
+                isReceiverRegistered = false;
+            } catch (Exception ignored) {
+            }
         }
         super.onDestroy();
     }
@@ -663,15 +684,19 @@ public class MainActivity extends Activity {
             isBackgroundServiceRunning = true;
             updateBgButtonUi(true);
         } catch (Exception e) {
+            isBackgroundServiceRunning = false;
             updateBgButtonUi(false);
         }
     }
 
     private void stopBackgroundService() {
-        Intent serviceIntent = new Intent(this, BackgroundMonitorService.class);
-        stopService(serviceIntent);
-        isBackgroundServiceRunning = false;
-        updateBgButtonUi(false);
+        try {
+            Intent serviceIntent = new Intent(this, BackgroundMonitorService.class);
+            stopService(serviceIntent);
+            isBackgroundServiceRunning = false;
+            updateBgButtonUi(false);
+        } catch (Exception ignored) {
+        }
     }
 
     private void toggleBackgroundService() {
