@@ -2,17 +2,29 @@ package com.generated.app;
 
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.DownloadManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.Settings;
+import android.util.Base64;
 import android.view.View;
+import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
+import android.webkit.JavascriptInterface;
+import android.webkit.URLUtil;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -23,17 +35,42 @@ import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.FileOutputStream;
+
 public class MainActivity extends Activity {
 
+    public static final String PACKAGE_IDENTIFIER = "com.app.factory.fm";
     public static final String TARGET_URL = "https://app-factory-nt5l.onrender.com/";
     private static final String INTERNAL_HOST = "app-factory-nt5l.onrender.com";
+
     private static final int PERMISSION_REQ_NOTIFICATIONS = 101;
+    private static final int PERMISSION_REQ_STORAGE = 102;
+    private static final int REQ_INSTALL_UNKNOWN_APPS = 103;
 
     private WebView webView;
     private ProgressBar progressBar;
     private View errorView;
     private Button btnToggleBackground;
     private boolean isBackgroundServiceRunning = false;
+
+    private File pendingInstallApk = null;
+    private String pendingDownloadUrl = null;
+    private String pendingUserAgent = null;
+    private String pendingContentDisposition = null;
+    private String pendingMimetype = null;
+
+    private final BroadcastReceiver downloadReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(intent.getAction())) {
+                long downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+                if (downloadId != -1) {
+                    handleDownloadCompleted(downloadId);
+                }
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,7 +81,19 @@ public class MainActivity extends Activity {
         setupWebView();
         requestNotificationPermissionIfNeeded();
         startBackgroundService();
+
+        registerReceiver(downloadReceiver, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+
         loadTargetUrl();
+    }
+
+    @Override
+    protected void onDestroy() {
+        try {
+            unregisterReceiver(downloadReceiver);
+        } catch (Exception ignored) {
+        }
+        super.onDestroy();
     }
 
     private void initViews() {
@@ -54,6 +103,7 @@ public class MainActivity extends Activity {
         btnToggleBackground = (Button) findViewById(R.id.btnToggleBackground);
         ImageButton btnRefresh = (ImageButton) findViewById(R.id.btnRefresh);
         ImageButton btnAbout = (ImageButton) findViewById(R.id.btnAbout);
+        ImageButton btnDownloads = (ImageButton) findViewById(R.id.btnDownloads);
         Button btnRetry = (Button) findViewById(R.id.btnRetry);
 
         btnRefresh.setOnClickListener(new View.OnClickListener() {
@@ -72,6 +122,15 @@ public class MainActivity extends Activity {
                 startActivity(intent);
             }
         });
+
+        if (btnDownloads != null) {
+            btnDownloads.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showDownloadsListDialog();
+                }
+            });
+        }
 
         btnRetry.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -101,15 +160,19 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        settings.setAllowFileAccess(true);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         }
 
+        // Bridge for handling blob downloads and direct client APKs
+        webView.addJavascriptInterface(new BlobDownloadInterface(), "AndroidDownloader");
+
         webView.setDownloadListener(new DownloadListener() {
             @Override
             public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
-                handleExternalLink(url);
+                processDownload(url, userAgent, contentDisposition, mimetype);
             }
         });
 
@@ -166,22 +229,349 @@ public class MainActivity extends Activity {
             return false;
         }
 
+        String lowerUrl = url.toLowerCase();
+        if (lowerUrl.endsWith(".apk") || lowerUrl.contains(".apk?")) {
+            processDownload(url, webView.getSettings().getUserAgentString(), null, "application/vnd.android.package-archive");
+            return true;
+        }
+
         Uri uri = Uri.parse(url);
         String scheme = uri.getScheme();
 
-        // Specific application schemes should always open in external apps
         if (scheme != null && !scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https")) {
             return handleExternalLink(url);
         }
 
-        // Check if the link belongs to the internal site
         String host = uri.getHost();
         if (host != null && host.equalsIgnoreCase(INTERNAL_HOST)) {
             return false; // Load inside WebView
         }
 
-        // All other domains (external sites, forums, social links, downloads) open in external apps
         return handleExternalLink(url);
+    }
+
+    public void processDownload(String url, String userAgent, String contentDisposition, String mimetype) {
+        if (url == null) return;
+
+        if (url.startsWith("blob:")) {
+            handleBlobUrlDownload(url);
+            return;
+        }
+
+        if (url.startsWith("data:")) {
+            handleDataUriDownload(url);
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            if (checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                pendingDownloadUrl = url;
+                pendingUserAgent = userAgent;
+                pendingContentDisposition = contentDisposition;
+                pendingMimetype = mimetype;
+                requestPermissions(new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQ_STORAGE);
+                return;
+            }
+        }
+
+        enqueueSystemDownload(url, userAgent, contentDisposition, mimetype);
+    }
+
+    private void enqueueSystemDownload(String url, String userAgent, String contentDisposition, String mimetype) {
+        try {
+            String fileName = URLUtil.guessFileName(url, contentDisposition, mimetype);
+            if (fileName == null || fileName.isEmpty()) {
+                fileName = "app-factory-" + System.currentTimeMillis() + (mimetype != null && mimetype.contains("android.package-archive") ? ".apk" : ".bin");
+            }
+
+            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+            if (mimetype != null && !mimetype.isEmpty()) {
+                request.setMimeType(mimetype);
+            }
+
+            String cookies = CookieManager.getInstance().getCookie(url);
+            if (cookies != null) {
+                request.addRequestHeader("cookie", cookies);
+            }
+            if (userAgent != null) {
+                request.addRequestHeader("User-Agent", userAgent);
+            }
+
+            request.setTitle(fileName);
+            request.setDescription(getString(R.string.downloading_file) + ": " + fileName);
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
+
+            DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+            if (dm != null) {
+                dm.enqueue(request);
+                Toast.makeText(this, getString(R.string.download_started) + " " + fileName, Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, getString(R.string.download_failed), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void handleBlobUrlDownload(String blobUrl) {
+        String js = "javascript:(function(){"
+                + "  var xhr = new XMLHttpRequest();"
+                + "  xhr.open('GET', '" + blobUrl + "', true);"
+                + "  xhr.responseType = 'blob';"
+                + "  xhr.onload = function() {"
+                + "    var reader = new FileReader();"
+                + "    reader.onloadend = function() {"
+                + "      AndroidDownloader.saveBase64(reader.result, 'app-build-" + System.currentTimeMillis() + ".apk');"
+                + "    };"
+                + "    reader.readAsDataURL(xhr.response);"
+                + "  };"
+                + "  xhr.send();"
+                + "})()";
+        webView.loadUrl(js);
+    }
+
+    private void handleDataUriDownload(String dataUri) {
+        try {
+            int commaIndex = dataUri.indexOf(',');
+            if (commaIndex > 0) {
+                String base64Data = dataUri.substring(commaIndex + 1);
+                byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
+                saveAndPromptInstallApk(bytes, "app-" + System.currentTimeMillis() + ".apk");
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, getString(R.string.download_failed), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private class BlobDownloadInterface {
+        @JavascriptInterface
+        public void saveBase64(String base64Data, String filename) {
+            try {
+                if (base64Data != null && base64Data.contains(",")) {
+                    base64Data = base64Data.substring(base64Data.indexOf(",") + 1);
+                }
+                byte[] decodedBytes = Base64.decode(base64Data, Base64.DEFAULT);
+                saveAndPromptInstallApk(decodedBytes, filename);
+            } catch (Exception e) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(MainActivity.this, getString(R.string.download_failed), Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        }
+    }
+
+    private void saveAndPromptInstallApk(final byte[] data, final String filename) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    File downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                    if (!downloadDir.exists()) {
+                        downloadDir.mkdirs();
+                    }
+                    final File apkFile = new File(downloadDir, filename);
+                    FileOutputStream fos = new FileOutputStream(apkFile);
+                    fos.write(data);
+                    fos.flush();
+                    fos.close();
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(MainActivity.this, getString(R.string.download_finished), Toast.LENGTH_SHORT).show();
+                            promptInstallApk(apkFile);
+                        }
+                    });
+                } catch (Exception e) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(MainActivity.this, getString(R.string.download_failed), Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+            }
+        }).start();
+    }
+
+    private void handleDownloadCompleted(long downloadId) {
+        DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+        if (dm == null) return;
+
+        DownloadManager.Query query = new DownloadManager.Query();
+        query.setFilterById(downloadId);
+        Cursor cursor = null;
+        try {
+            cursor = dm.query(query);
+            if (cursor != null && cursor.moveToFirst()) {
+                int statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS);
+                if (statusIndex >= 0 && cursor.getInt(statusIndex) == DownloadManager.STATUS_SUCCESSFUL) {
+                    int localUriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI);
+                    int titleIndex = cursor.getColumnIndex(DownloadManager.COLUMN_TITLE);
+
+                    String localUriStr = localUriIndex >= 0 ? cursor.getString(localUriIndex) : null;
+                    String title = titleIndex >= 0 ? cursor.getString(titleIndex) : "";
+
+                    if (localUriStr != null) {
+                        Uri uri = Uri.parse(localUriStr);
+                        File file = new File(uri.getPath());
+                        if (file.exists() && (title.toLowerCase().endsWith(".apk") || file.getName().toLowerCase().endsWith(".apk"))) {
+                            promptInstallApk(file);
+                        } else {
+                            Toast.makeText(this, getString(R.string.download_finished) + ": " + title, Toast.LENGTH_LONG).show();
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+    }
+
+    public void promptInstallApk(final File apkFile) {
+        if (apkFile == null || !apkFile.exists()) {
+            Toast.makeText(this, getString(R.string.file_not_found), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(R.string.install_app_dialog_title);
+        builder.setMessage(getString(R.string.install_app_dialog_msg, apkFile.getName()));
+        builder.setIcon(R.drawable.ic_launcher);
+        builder.setPositiveButton(R.string.install_now, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                installApkFile(apkFile);
+            }
+        });
+        builder.setNegativeButton(R.string.cancel, null);
+        builder.show();
+    }
+
+    public void installApkFile(File apkFile) {
+        if (apkFile == null || !apkFile.exists()) {
+            Toast.makeText(this, getString(R.string.file_not_found), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        pendingInstallApk = apkFile;
+
+        // Check Unknown Source installation permission on Android 8+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            boolean canInstall = getPackageManager().canRequestPackageInstalls();
+            if (!canInstall) {
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setTitle(R.string.permission_unknown_apps_title);
+                builder.setMessage(R.string.permission_unknown_apps_msg);
+                builder.setPositiveButton(R.string.grant_permission, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        try {
+                            Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
+                            intent.setData(Uri.parse("package:" + getPackageName()));
+                            startActivityForResult(intent, REQ_INSTALL_UNKNOWN_APPS);
+                        } catch (Exception e) {
+                            try {
+                                Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
+                                startActivityForResult(intent, REQ_INSTALL_UNKNOWN_APPS);
+                            } catch (Exception ex) {
+                                Toast.makeText(MainActivity.this, getString(R.string.cannot_open_settings), Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    }
+                });
+                builder.setNegativeButton(R.string.cancel, null);
+                builder.show();
+                return;
+            }
+        }
+
+        launchInstallerIntent(apkFile);
+    }
+
+    private void launchInstallerIntent(File apkFile) {
+        try {
+            Uri apkUri;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                apkUri = AppFileProvider.getUriForFile(this, apkFile);
+            } else {
+                apkUri = Uri.fromFile(apkFile);
+            }
+
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(intent);
+        } catch (Exception e) {
+            Toast.makeText(this, getString(R.string.install_failed_intent) + ": " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_INSTALL_UNKNOWN_APPS) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (getPackageManager().canRequestPackageInstalls()) {
+                    if (pendingInstallApk != null && pendingInstallApk.exists()) {
+                        launchInstallerIntent(pendingInstallApk);
+                        pendingInstallApk = null;
+                    }
+                } else {
+                    Toast.makeText(this, getString(R.string.permission_denied_install), Toast.LENGTH_SHORT).show();
+                }
+            }
+        }
+    }
+
+    private void showDownloadsListDialog() {
+        File downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        if (!downloadDir.exists()) {
+            Toast.makeText(this, getString(R.string.no_downloaded_apks), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        File[] files = downloadDir.listFiles();
+        if (files == null || files.length == 0) {
+            Toast.makeText(this, getString(R.string.no_downloaded_apks), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        java.util.ArrayList<File> apkList = new java.util.ArrayList<File>();
+        for (File f : files) {
+            if (f.isFile() && f.getName().toLowerCase().endsWith(".apk")) {
+                apkList.add(f);
+            }
+        }
+
+        if (apkList.isEmpty()) {
+            Toast.makeText(this, getString(R.string.no_downloaded_apks), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final File[] apks = apkList.toArray(new File[0]);
+        String[] names = new String[apks.length];
+        for (int i = 0; i < apks.length; i++) {
+            long sizeMb = apks[i].length() / (1024 * 1024);
+            names[i] = apks[i].getName() + (sizeMb > 0 ? " (" + sizeMb + " MB)" : "");
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(R.string.downloaded_apks_title);
+        builder.setItems(names, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                promptInstallApk(apks[which]);
+            }
+        });
+        builder.setNegativeButton(R.string.cancel, null);
+        builder.show();
     }
 
     private boolean handleExternalLink(String url) {
@@ -247,6 +637,21 @@ public class MainActivity extends Activity {
         }
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSION_REQ_STORAGE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (pendingDownloadUrl != null) {
+                    enqueueSystemDownload(pendingDownloadUrl, pendingUserAgent, pendingContentDisposition, pendingMimetype);
+                    pendingDownloadUrl = null;
+                }
+            } else {
+                Toast.makeText(this, getString(R.string.storage_permission_required), Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
     private void startBackgroundService() {
         try {
             Intent serviceIntent = new Intent(this, BackgroundMonitorService.class);
@@ -272,14 +677,15 @@ public class MainActivity extends Activity {
     private void toggleBackgroundService() {
         if (isBackgroundServiceRunning) {
             stopBackgroundService();
-            Toast.makeText(this, "שירות הרקע הופסק", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.bg_service_stopped), Toast.LENGTH_SHORT).show();
         } else {
             startBackgroundService();
-            Toast.makeText(this, "שירות הרקע וההתראות הופעל", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.bg_service_started), Toast.LENGTH_SHORT).show();
         }
     }
 
     private void updateBgButtonUi(boolean active) {
+        if (btnToggleBackground == null) return;
         if (active) {
             btnToggleBackground.setText(R.string.bg_active);
             btnToggleBackground.setTextColor(0xFF00E676);

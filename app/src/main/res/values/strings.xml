@@ -1,18 +1,47 @@
 <resources>
     <string name="app_name">App Factory</string>
     <string name="site_title">מפעל האפליקציות</string>
-    <string name="app_subtitle">גרסה 1.1 • ניטור, ייצור וניהול אפליקציות</string>
+    <string name="app_subtitle">גרסה 1.2 • ניטור, ייצור, הורדה והתקנת אפליקציות</string>
+    <string name="package_name_label">מזהה חבילה:</string>
+    <string name="package_name_val">com.app.factory.fm</string>
+    <string name="features_title">יכולות האפליקציה:</string>
+    <string name="features_desc">✔ תמיכה מלאה בהורדת קבצי APK ו-BLOB\n✔ התקנת אפליקציות מתוך היישום באופן ישיר\n✔ רשימת הורדות מובנית וגישה מהירה\n✔ ניטור פעילות שרת ברקע והתראות בזמן אמת</string>
+
     <string name="bg_active">פועל ברקע</string>
     <string name="bg_inactive">כבוי ברקע</string>
     <string name="bg_desc">שירות ניטור והתראות פעיל כעת</string>
+    <string name="bg_service_started">שירות הרקע וההתראות הופעל</string>
+    <string name="bg_service_stopped">שירות הרקע הופסק</string>
+
     <string name="error_title">לא ניתן להתחבר לאתר</string>
     <string name="error_message">אירעה שגיאה בטעינת האתר. אנא בדקו את חיבור האינטרנט ונסו שוב.</string>
     <string name="retry">נסה שוב</string>
+    <string name="cancel">ביטול</string>
     <string name="notification_channel_name">התראות מפעל האפליקציות</string>
     <string name="notification_channel_desc">עדכונים והודעות רקע על מצב האפליקציה</string>
     <string name="notif_title">מפעל האפליקציות פועל ברקע</string>
     <string name="notif_text">האפליקציה שומרת על סנכרון והתראות בזמן אמת</string>
     <string name="grant_permission_needed">יש לאשר התראות כדי לקבל עדכונים</string>
+
+    <!-- Downloads and Installation -->
+    <string name="downloads_title">הורדות APK</string>
+    <string name="downloading_file">מוריד קובץ</string>
+    <string name="download_started">ההורדה החלה עבור:</string>
+    <string name="download_finished">ההורדה הושלמה בהצלחה</string>
+    <string name="download_failed">ההורדה נכשלה</string>
+    <string name="file_not_found">קובץ ההתקנה לא נמצא במכשיר</string>
+    <string name="install_app_dialog_title">התקנת אפליקציה</string>
+    <string name="install_app_dialog_msg">האם ברצונך להתקין את האפליקציה:\n%1$s?</string>
+    <string name="install_now">התקן כעת</string>
+    <string name="downloaded_apks_title">אפליקציות שהורדו</string>
+    <string name="no_downloaded_apks">לא נמצאו קבצי APK שהורדו עדיין</string>
+    <string name="permission_unknown_apps_title">הרשאת התקנת אפליקציות</string>
+    <string name="permission_unknown_apps_msg">כדי להתקין אפליקציות שהורדו דרך מפעל האפליקציות, עליך לאפשר למקור זה להתקין יישומים בהגדרות המכשיר.</string>
+    <string name="grant_permission">פתח הגדרות</string>
+    <string name="permission_denied_install">לא אושרה הרשאת התקנת אפליקציות</string>
+    <string name="cannot_open_settings">לא ניתן לפתוח את מסך ההגדרות</string>
+    <string name="storage_permission_required">דרושה הרשאת אחסון לצורך שמירת ההורדות</string>
+    <string name="install_failed_intent">שגיאה בהפעלת מנהל ההתקנות</string>
 
     <!-- About & Credits -->
     <string name="about_title">אודות וקרדיטים</string>
@@ -22,7 +51,7 @@
     <string name="credit_site_creator_desc">פיתוח ועיצוב פלטפורמת האינטרנט של מפעל האפליקציות</string>
     <string name="credit_app_creator_label">יוצר האפליקציה</string>
     <string name="credit_app_creator_name">@נוחעם-FM</string>
-    <string name="credit_app_creator_desc">פיתוח אפליקציית האנדרואיד, שירותי הרקע ואינטגרציית המובייל</string>
+    <string name="credit_app_creator_desc">פיתוח אפליקציית האנדרואיד com.app.factory.fm, הורדות, התקנת APK וניטור רקע</string>
     <string name="open_profile">פתח פרופיל בפורום מתמחים טופ</string>
     <string name="mitmachim_credit">קהילת מתמחים טופ • mitmachim.top</string>
     <string name="no_app_to_open_link">לא נמצא יישום לפתיחת הקישור</string>

@@ -3,50 +3,53 @@
     android:height="96dp"
     android:viewportWidth="96"
     android:viewportHeight="96">
-    <!-- Rounded Background Base with Brand Indigo Palette -->
-    <path
-        android:fillColor="#1A237E"
-        android:pathData="M20,0 L76,0 C87.05,0 96,8.95 96,20 L96,76 C96,87.05 87.05,96 76,96 L20,96 C8.95,96 0,87.05 0,76 L0,20 C0,8.95 8.95,0 20,0 Z" />
 
-    <!-- Industrial Factory Silhouette Background -->
+    <!-- Premium Rounded Squircle Background -->
     <path
-        android:fillColor="#283593"
-        android:pathData="M12,68 L12,48 L30,58 L30,48 L50,58 L50,34 L66,34 L66,68 Z" />
+        android:fillColor="#0D1B2A"
+        android:pathData="M24,0 L72,0 C85.25,0 96,10.75 96,24 L96,72 C96,85.25 85.25,96 72,96 L24,96 C10.75,96 0,85.25 0,72 L0,24 C0,10.75 10.75,0 24,0 Z" />
 
-    <!-- Factory Chimneys & Steam Energy -->
+    <!-- Deep Blue Indigo Container Shape -->
+    <path
+        android:fillColor="#1B263B"
+        android:pathData="M8,24 C8,15.16 15.16,8 24,8 L72,8 C80.84,8 88,15.16 88,24 L88,72 C88,80.84 80.84,88 72,88 L24,88 C15.16,88 8,80.84 8,72 Z" />
+
+    <!-- Modern App Factory / Blueprint Grid Accent -->
+    <path
+        android:fillColor="#415A77"
+        android:pathData="M16,56 L80,56 L80,58 L16,58 Z M16,36 L80,36 L80,38 L16,38 Z M36,16 L38,16 L38,80 L36,80 Z M60,16 L62,16 L62,80 L60,80 Z" />
+
+    <!-- Modern 3D App Package / Cube Top Base -->
+    <path
+        android:fillColor="#3A86FF"
+        android:pathData="M48,16 L74,30 L48,44 L22,30 Z" />
+
+    <!-- App Package Left Panel -->
+    <path
+        android:fillColor="#2563EB"
+        android:pathData="M22,30 L48,44 L48,74 L22,60 Z" />
+
+    <!-- App Package Right Panel -->
+    <path
+        android:fillColor="#1D4ED8"
+        android:pathData="M48,44 L74,30 L74,60 L48,74 Z" />
+
+    <!-- Factory Gears / Android App Android Symbol Inner Accents -->
     <path
         android:fillColor="#00E676"
-        android:pathData="M56,18 L60,18 L60,30 L56,30 Z" />
-    <path
-        android:fillColor="#69F0AE"
-        android:pathData="M62,12 L66,12 L66,28 L62,28 Z" />
+        android:pathData="M48,32 L60,38.5 L48,45 L36,38.5 Z" />
 
-    <!-- Sleek Tech Smartphone Device Silhouette -->
+    <!-- High-tech Download Arrow & Package Installer Arrow -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M38,24 L78,24 C82.4,24 86,27.6 86,32 L86,76 C86,80.4 82.4,84 78,84 L38,84 C33.6,84 30,80.4 30,76 L30,32 C30,27.6 33.6,24 38,24 Z" />
+        android:pathData="M45,46 L51,46 L51,58 L57,58 L48,68 L39,58 L45,58 Z" />
 
-    <!-- Inner Vibrant Screen Area -->
+    <!-- Dynamic Installation Sparkle Dots -->
     <path
-        android:fillColor="#0D47A1"
-        android:pathData="M34,30 L82,30 L82,75 L34,75 Z" />
-
-    <!-- Code / Building Brackets (< / >) -->
-    <path
-        android:fillColor="#FFD54F"
-        android:pathData="M46,45 L40,52.5 L46,60 L43,63 L34,52.5 L43,42 Z" />
-    <path
-        android:fillColor="#FFD54F"
-        android:pathData="M70,45 L76,52.5 L70,60 L73,63 L82,52.5 L73,42 Z" />
+        android:fillColor="#FFD166"
+        android:pathData="M24,20 A4,4 0 1,1 32,20 A4,4 0 1,1 24,20 Z" />
     <path
         android:fillColor="#00E676"
-        android:pathData="M61,40 L57,65 L53,65 L57,40 Z" />
+        android:pathData="M66,74 A4,4 0 1,1 74,74 A4,4 0 1,1 66,74 Z" />
 
-    <!-- Device Speaker & Home Indicator -->
-    <path
-        android:fillColor="#90CAF9"
-        android:pathData="M52,27 L64,27 L64,28.5 L52,28.5 Z" />
-    <path
-        android:fillColor="#00E676"
-        android:pathData="M55,79 A3,3 0 1,1 61,79 A3,3 0 1,1 55,79 Z" />
 </vector>
