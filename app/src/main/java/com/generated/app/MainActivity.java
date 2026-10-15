@@ -59,7 +59,6 @@ public class MainActivity extends Activity {
     private boolean isReceiverRegistered = false;
 
     private ValueCallback<Uri[]> uploadMessage;
-    private ValueCallback<Uri> uploadMessageAboveL;
 
     private File pendingInstallApk = null;
     private String pendingDownloadUrl = null;
@@ -194,7 +193,6 @@ public class MainActivity extends Activity {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         }
 
-        // Bridge for handling blob downloads and direct client APKs & Web Push Notifications
         webView.addJavascriptInterface(new AppFactoryJsBridge(), "AppFactoryBridge");
         webView.addJavascriptInterface(new BlobDownloadInterface(), "AndroidDownloader");
 
@@ -230,7 +228,6 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
-                // Inject helper script to bridge Service Worker / Web Notifications & Multi-file Uploads if needed
                 injectWebBridgeScript();
                 super.onPageFinished(view, url);
             }
@@ -253,7 +250,6 @@ public class MainActivity extends Activity {
                 super.onProgressChanged(view, newProgress);
             }
 
-            // For Android 4.1+
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
                 if (uploadMessage != null) {
                     uploadMessage.onReceiveValue(null);
@@ -266,7 +262,6 @@ public class MainActivity extends Activity {
                 if (fileChooserParams != null) {
                     try {
                         intent = fileChooserParams.createIntent();
-                        // Enable multiple file selection if requested by website
                         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
                     } catch (Exception ignored) {
                     }
@@ -299,7 +294,6 @@ public class MainActivity extends Activity {
                 "      return Promise.resolve('granted');" +
                 "    };" +
                 "  }" +
-                "  const originalShowNotification = window.Notification;" +
                 "  if (window.ServiceWorkerRegistration && window.ServiceWorkerRegistration.prototype) {" +
                 "    window.ServiceWorkerRegistration.prototype.showNotification = function(title, options) {" +
                 "      let body = options ? options.body : '';" +
@@ -342,7 +336,7 @@ public class MainActivity extends Activity {
 
         String host = uri.getHost();
         if (host != null && host.equalsIgnoreCase(INTERNAL_HOST)) {
-            return false; // Load inside WebView
+            return false;
         }
 
         return handleExternalLink(url);
@@ -533,7 +527,6 @@ public class MainActivity extends Activity {
                     fos.flush();
                     fos.close();
 
-                    // Add to DownloadManager database so it shows up in system downloads list / notifications
                     try {
                         DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
                         if (dm != null) {
