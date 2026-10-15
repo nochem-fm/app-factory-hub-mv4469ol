@@ -119,6 +119,49 @@ public class BackgroundMonitorService extends Service {
         });
     }
 
+    public static void showDynamicNotification(Context context, String title, String message) {
+        try {
+            NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm == null) return;
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel channel = new NotificationChannel(
+                        CHANNEL_ID,
+                        context.getString(R.string.notification_channel_name),
+                        NotificationManager.IMPORTANCE_HIGH
+                );
+                nm.createNotificationChannel(channel);
+            }
+
+            Intent notificationIntent = new Intent(context, MainActivity.class);
+            notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            PendingIntent pendingIntent = PendingIntent.getActivity(
+                    context,
+                    (int) System.currentTimeMillis(),
+                    notificationIntent,
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                            ? PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+                            : PendingIntent.FLAG_UPDATE_CURRENT
+            );
+
+            Notification.Builder builder;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                builder = new Notification.Builder(context, CHANNEL_ID);
+            } else {
+                builder = new Notification.Builder(context);
+            }
+
+            builder.setContentTitle(title != null && !title.isEmpty() ? title : context.getString(R.string.notif_title))
+                    .setContentText(message != null ? message : context.getString(R.string.notif_text))
+                    .setSmallIcon(R.drawable.ic_launcher)
+                    .setContentIntent(pendingIntent)
+                    .setAutoCancel(true);
+
+            nm.notify((int) System.currentTimeMillis(), builder.build());
+        } catch (Exception ignored) {
+        }
+    }
+
     private Notification buildForegroundNotification(String contentText) {
         Intent notificationIntent = new Intent(this, MainActivity.class);
         notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);

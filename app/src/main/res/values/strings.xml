@@ -1,9 +1,9 @@
 <resources>
     <string name="app_name">App Factory</string>
     <string name="site_title">מפעל האפליקציות</string>
-    <string name="app_subtitle">גרסה 1.2 • ניטור, ייצור, הורדה והתקנת אפליקציות</string>
+    <string name="app_subtitle">גרסה 1.3 • ניטור, ייצור, הורדה, התקנה והעלאת קבצים</string>
     <string name="features_title">יכולות האפליקציה:</string>
-    <string name="features_desc">✔ תמיכה מלאה בהורדת קבצי APK ו-BLOB\n✔ התקנת אפליקציות מתוך היישום באופן ישיר\n✔ רשימת הורדות מובנית וגישה מהירה\n✔ ניטור פעילות שרת ברקע והתראות בזמן אמת</string>
+    <string name="features_desc">✔ תמיכה מלאה בהתראות מהאתר (Service Worker)\n✔ העלאת קבצים מרובים מכל סוג באופן דינמי\n✔ תמיכה מלאה בהורדת קבצי APK ו-BLOB עם שם וסמל מדויקים\n✔ התקנת אפליקציות מתוך היישום באופן ישיר\n✔ רשימת הורדות מובנית וגישה מהירה\n✔ ניטור פעילות שרת ברקע והתראות בזמן אמת</string>
 
     <string name="bg_active">פועל ברקע</string>
     <string name="bg_inactive">כבוי ברקע</string>

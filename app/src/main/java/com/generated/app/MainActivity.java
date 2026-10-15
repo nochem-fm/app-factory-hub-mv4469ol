@@ -26,6 +26,7 @@ import android.webkit.DownloadListener;
 import android.webkit.JavascriptInterface;
 import android.webkit.MimeTypeMap;
 import android.webkit.URLUtil;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -48,6 +49,7 @@ public class MainActivity extends Activity {
     private static final int PERMISSION_REQ_NOTIFICATIONS = 101;
     private static final int PERMISSION_REQ_STORAGE = 102;
     private static final int REQ_INSTALL_UNKNOWN_APPS = 103;
+    private static final int FILE_CHOOSER_RESULT_CODE = 2001;
 
     private WebView webView;
     private ProgressBar progressBar;
@@ -55,6 +57,9 @@ public class MainActivity extends Activity {
     private Button btnToggleBackground;
     private boolean isBackgroundServiceRunning = false;
     private boolean isReceiverRegistered = false;
+
+    private ValueCallback<Uri[]> uploadMessage;
+    private ValueCallback<Uri> uploadMessageAboveL;
 
     private File pendingInstallApk = null;
     private String pendingDownloadUrl = null;
@@ -183,12 +188,14 @@ public class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         }
 
-        // Bridge for handling blob downloads and direct client APKs
+        // Bridge for handling blob downloads and direct client APKs & Web Push Notifications
+        webView.addJavascriptInterface(new AppFactoryJsBridge(), "AppFactoryBridge");
         webView.addJavascriptInterface(new BlobDownloadInterface(), "AndroidDownloader");
 
         webView.setDownloadListener(new DownloadListener() {
@@ -223,6 +230,8 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
+                // Inject helper script to bridge Service Worker / Web Notifications & Multi-file Uploads if needed
+                injectWebBridgeScript();
                 super.onPageFinished(view, url);
             }
 
@@ -243,7 +252,74 @@ public class MainActivity extends Activity {
                 }
                 super.onProgressChanged(view, newProgress);
             }
+
+            // For Android 4.1+
+            public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
+                if (uploadMessage != null) {
+                    uploadMessage.onReceiveValue(null);
+                    uploadMessage = null;
+                }
+
+                uploadMessage = filePathCallback;
+
+                Intent intent = null;
+                if (fileChooserParams != null) {
+                    try {
+                        intent = fileChooserParams.createIntent();
+                        // Enable multiple file selection if requested by website
+                        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                    } catch (Exception ignored) {
+                    }
+                }
+
+                if (intent == null) {
+                    intent = new Intent(Intent.ACTION_GET_CONTENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("*/*");
+                    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                }
+
+                try {
+                    startActivityForResult(Intent.createChooser(intent, "בחר קבצים להעלאה"), FILE_CHOOSER_RESULT_CODE);
+                } catch (Exception e) {
+                    uploadMessage = null;
+                    Toast.makeText(MainActivity.this, "לא ניתן לפתוח בוחר קבצים", Toast.LENGTH_SHORT).show();
+                    return false;
+                }
+                return true;
+            }
         });
+    }
+
+    private void injectWebBridgeScript() {
+        String script = "javascript:(function() {" +
+                "  if (window.Notification && window.Notification.requestPermission) {" +
+                "    window.Notification.requestPermission = function(callback) {" +
+                "      if (callback) callback('granted');" +
+                "      return Promise.resolve('granted');" +
+                "    };" +
+                "  }" +
+                "  const originalShowNotification = window.Notification;" +
+                "  if (window.ServiceWorkerRegistration && window.ServiceWorkerRegistration.prototype) {" +
+                "    window.ServiceWorkerRegistration.prototype.showNotification = function(title, options) {" +
+                "      let body = options ? options.body : '';" +
+                "      AppFactoryBridge.showNotification(title, body);" +
+                "    };" +
+                "  }" +
+                "})();";
+        webView.loadUrl(script);
+    }
+
+    public class AppFactoryJsBridge {
+        @JavascriptInterface
+        public void showNotification(final String title, final String body) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    BackgroundMonitorService.showDynamicNotification(MainActivity.this, title, body);
+                }
+            });
+        }
     }
 
     private boolean handleUrlNavigation(String url) {
@@ -302,8 +378,9 @@ public class MainActivity extends Activity {
     private void enqueueSystemDownload(String url, String userAgent, String contentDisposition, String mimetype) {
         try {
             String fileName = URLUtil.guessFileName(url, contentDisposition, mimetype);
-            if (fileName == null || fileName.isEmpty()) {
-                fileName = "app-factory-" + System.currentTimeMillis() + "." + getExtensionForMimeType(mimetype);
+            if (fileName == null || fileName.isEmpty() || fileName.toLowerCase().endsWith(".bin")) {
+                String extension = getExtensionForMimeType(mimetype);
+                fileName = "download-" + System.currentTimeMillis() + "." + extension;
             }
 
             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
@@ -342,7 +419,7 @@ public class MainActivity extends Activity {
                 + "  xhr.onload = function() {"
                 + "    var reader = new FileReader();"
                 + "    reader.onloadend = function() {"
-                + "      AndroidDownloader.saveBase64(reader.result);" // Pass entire data URI
+                + "      AndroidDownloader.saveBase64(reader.result);"
                 + "    };"
                 + "    reader.readAsDataURL(xhr.response);"
                 + "  };"
@@ -357,21 +434,21 @@ public class MainActivity extends Activity {
             if (commaIndex > 0) {
                 String base64Data = dataUri.substring(commaIndex + 1);
                 String mimeTypePart = dataUri.substring(0, commaIndex);
-                String mimeType = "application/octet-stream"; // Default
+                String mimeType = "application/octet-stream";
 
                 int mimeTypeStart = mimeTypePart.indexOf(':');
                 int mimeTypeEnd = mimeTypePart.indexOf(';');
 
                 if (mimeTypeStart != -1 && mimeTypeEnd != -1 && mimeTypeStart < mimeTypeEnd) {
                     mimeType = mimeTypePart.substring(mimeTypeStart + 1, mimeTypeEnd);
-                } else if (mimeTypeStart != -1) { // no ;base64 part, just data:mimetype
+                } else if (mimeTypeStart != -1) {
                     mimeType = mimeTypePart.substring(mimeTypeStart + 1);
                 }
 
                 byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
 
                 String extension = getExtensionForMimeType(mimeType);
-                final String finalFilename = "data-download-" + System.currentTimeMillis() + "." + extension;
+                final String finalFilename = "file-" + System.currentTimeMillis() + "." + extension;
 
                 saveFileToDownloads(bytes, finalFilename, mimeType);
             }
@@ -382,7 +459,7 @@ public class MainActivity extends Activity {
 
     private class BlobDownloadInterface {
         @JavascriptInterface
-        public void saveBase64(final String dataUri) { // dataUri will be like "data:mimetype;base64,..."
+        public void saveBase64(final String dataUri) {
             if (dataUri == null || !dataUri.startsWith("data:")) {
                 runOnUiThread(new Runnable() {
                     @Override
@@ -405,22 +482,22 @@ public class MainActivity extends Activity {
             }
 
             final String base64Data = dataUri.substring(commaIndex + 1);
-            String mimeTypePart = dataUri.substring(0, commaIndex); // e.g., "data:application/vnd.android.package-archive;base64"
-            String mimeType = "application/octet-stream"; // Default
+            String mimeTypePart = dataUri.substring(0, commaIndex);
+            String mimeType = "application/octet-stream";
 
             int mimeTypeStart = mimeTypePart.indexOf(':');
             int mimeTypeEnd = mimeTypePart.indexOf(';');
 
             if (mimeTypeStart != -1 && mimeTypeEnd != -1 && mimeTypeStart < mimeTypeEnd) {
                 mimeType = mimeTypePart.substring(mimeTypeStart + 1, mimeTypeEnd);
-            } else if (mimeTypeStart != -1) { // no ;base64 part, just data:mimetype
+            } else if (mimeTypeStart != -1) {
                  mimeType = mimeTypePart.substring(mimeTypeStart + 1);
             }
 
             final String actualMimeType = mimeType;
 
             String extension = getExtensionForMimeType(actualMimeType);
-            final String finalFilename = "blob-download-" + System.currentTimeMillis() + "." + extension;
+            final String finalFilename = "download-" + System.currentTimeMillis() + "." + extension;
 
             new Thread(new Runnable() {
                 @Override
@@ -456,15 +533,21 @@ public class MainActivity extends Activity {
                     fos.flush();
                     fos.close();
 
+                    // Add to DownloadManager database so it shows up in system downloads list / notifications
+                    try {
+                        DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+                        if (dm != null) {
+                            dm.addCompletedDownload(filename, "App Factory Download", true, mimeType, savedFile.getAbsolutePath(), data.length, true);
+                        }
+                    } catch (Exception ignored) {
+                    }
+
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            Toast.makeText(MainActivity.this, getString(R.string.download_finished), Toast.LENGTH_SHORT).show();
+                            Toast.makeText(MainActivity.this, getString(R.string.download_finished) + ": " + filename, Toast.LENGTH_SHORT).show();
                             if (isApkMimeType(mimeType)) {
                                 promptInstallApk(savedFile);
-                            } else {
-                                // For non-APK files, just notify download finished.
-                                // User can find it in downloads folder.
                             }
                         }
                     });
@@ -494,7 +577,7 @@ public class MainActivity extends Activity {
                 if (statusIndex >= 0 && cursor.getInt(statusIndex) == DownloadManager.STATUS_SUCCESSFUL) {
                     int localUriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI);
                     int titleIndex = cursor.getColumnIndex(DownloadManager.COLUMN_TITLE);
-                    int mediaTypeIndex = cursor.getColumnIndex(DownloadManager.COLUMN_MEDIA_TYPE); // API 9+
+                    int mediaTypeIndex = cursor.getColumnIndex(DownloadManager.COLUMN_MEDIA_TYPE);
 
                     String localUriStr = localUriIndex >= 0 ? cursor.getString(localUriIndex) : null;
                     String title = titleIndex >= 0 ? cursor.getString(titleIndex) : "";
@@ -504,23 +587,18 @@ public class MainActivity extends Activity {
                         Uri uri = Uri.parse(localUriStr);
                         File file = new File(uri.getPath());
 
-                        // Attempt to determine actual mime type if not explicitly provided by DownloadManager
                         if (mediaType == null && file.exists()) {
                             mediaType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(MimeTypeMap.getFileExtensionFromUrl(file.getAbsolutePath()));
-                            if (mediaType == null) { // Fallback if extension lookup fails
+                            if (mediaType == null) {
                                 if (file.getName().toLowerCase().endsWith(".apk")) {
                                     mediaType = "application/vnd.android.package-archive";
-                                } else if (file.getName().toLowerCase().endsWith(".zip")) {
-                                    mediaType = "application/zip";
                                 }
                             }
                         }
 
                         if (file.exists() && isApkMimeType(mediaType)) {
-                            // Only prompt install if it's confirmed an APK
                             promptInstallApk(file);
                         } else {
-                            // General download completion toast for non-APK files or if type is unknown
                             Toast.makeText(this, getString(R.string.download_finished) + ": " + title, Toast.LENGTH_LONG).show();
                         }
                     }
@@ -562,7 +640,6 @@ public class MainActivity extends Activity {
 
         pendingInstallApk = apkFile;
 
-        // Check Unknown Source installation permission on Android 8+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             boolean canInstall = getPackageManager().canRequestPackageInstalls();
             if (!canInstall) {
@@ -617,6 +694,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+
         if (requestCode == REQ_INSTALL_UNKNOWN_APPS) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 if (getPackageManager().canRequestPackageInstalls()) {
@@ -628,6 +706,25 @@ public class MainActivity extends Activity {
                     Toast.makeText(this, getString(R.string.permission_denied_install), Toast.LENGTH_SHORT).show();
                 }
             }
+        } else if (requestCode == FILE_CHOOSER_RESULT_CODE) {
+            if (uploadMessage == null) return;
+
+            Uri[] results = null;
+            if (resultCode == RESULT_OK && data != null) {
+                String dataString = data.getDataString();
+                if (dataString != null) {
+                    results = new Uri[]{Uri.parse(dataString)};
+                } else if (data.getClipData() != null) {
+                    int count = data.getClipData().getItemCount();
+                    results = new Uri[count];
+                    for (int i = 0; i < count; i++) {
+                        results[i] = data.getClipData().getItemAt(i).getUri();
+                    }
+                }
+            }
+
+            uploadMessage.onReceiveValue(results);
+            uploadMessage = null;
         }
     }
 
